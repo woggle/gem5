@@ -61,6 +61,7 @@ BPredUnit::BPredUnit(const Params *params)
           params->BTBTagSize,
           params->instShiftAmt,
           params->numThreads),
+      useRAS(params->useRAS),
       RAS(numThreads),
       useIndirect(params->useIndirect),
       iPred(params->indirectHashGHR,
@@ -214,7 +215,7 @@ BPredUnit::predict(const StaticInstPtr &inst, const InstSeqNum &seqNum,
 
     // Now lookup in the BTB or RAS.
     if (pred_taken) {
-        if (inst->isReturn()) {
+        if (useRAS && inst->isReturn()) {
             ++usedRAS;
             predict_record.wasReturn = true;
             // If it's a function return call, then look up the address
@@ -235,7 +236,7 @@ BPredUnit::predict(const StaticInstPtr &inst, const InstSeqNum &seqNum,
         } else {
             ++BTBLookups;
 
-            if (inst->isCall()) {
+            if (useRAS && inst->isCall()) {
                 RAS[tid].push(pc);
                 predict_record.pushedRAS = true;
 
@@ -270,7 +271,8 @@ BPredUnit::predict(const StaticInstPtr &inst, const InstSeqNum &seqNum,
                         btbUpdate(tid, pc.instAddr(), bp_history);
                         DPRINTF(Branch, "[tid:%i]:[sn:%i] btbUpdate"
                                 " called for %s\n", tid, seqNum, pc);
-                    } else if (inst->isCall() && !inst->isUncondCtrl()) {
+                    } else if (useRAS && inst->isCall() &&
+                               !inst->isUncondCtrl()) {
                         RAS[tid].pop();
                         predict_record.pushedRAS = false;
                     }

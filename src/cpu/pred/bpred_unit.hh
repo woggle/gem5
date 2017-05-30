@@ -266,6 +266,9 @@ class BPredUnit : public SimObject
     /** The BTB. */
     DefaultBTB BTB;
 
+    /** Option to disable the return address stack. */
+    const bool useRAS;
+
     /** The per-thread return address stack. */
     std::vector<ReturnAddrStack> RAS;
 
