@@ -52,7 +52,13 @@ class BranchPredictor(SimObject):
     indirectPathLength = Param.Unsigned(3,
         "Previous indirect targets to use for path history")
 
+class NeverTakenBP(BranchPredictor):
+    type = 'NeverTakenBP'
+    cxx_class = 'NeverTakenBP'
+    cxx_header = 'cpu/pred/never_taken.hh'
 
+    useRAS = False
+    useIndirect = False
 
 class LocalBP(BranchPredictor):
     type = 'LocalBP'
