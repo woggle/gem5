@@ -209,7 +209,8 @@ termcap = get_termcap(GetOption('use_colors'))
 # export TERM so that clang reports errors in color
 use_vars = set([ 'AS', 'AR', 'CC', 'CXX', 'HOME', 'LD_LIBRARY_PATH',
                  'LIBRARY_PATH', 'PATH', 'PKG_CONFIG_PATH', 'PROTOC',
-                 'PYTHONPATH', 'RANLIB', 'TERM' ])
+                 'PYTHONPATH', 'RANLIB', 'TERM',
+                 'TCMALLOCLIB', 'PROTOBUFLIB', ])
 
 use_prefixes = [
     "ASAN_",           # address sanitizer symbolizer path and settings
@@ -520,6 +521,8 @@ global_vars.AddVariables(
     ('CC', 'C compiler', environ.get('CC', main['CC'])),
     ('CXX', 'C++ compiler', environ.get('CXX', main['CXX'])),
     ('PROTOC', 'protoc tool', environ.get('PROTOC', 'protoc')),
+    ('PROTOBUFLIB', 'protobuf library', environ.get('PROTOBUFLIB', '')),
+    ('TCMALLOCLIB', 'tcmalloc library', environ.get('TCMALLOCLIB', '')),
     ('BATCH', 'Use batch pool for build and tests', False),
     ('BATCH_CMD', 'Batch pool submission command name', 'qdo'),
     ('M5_BUILD_CACHE', 'Cache built objects in this directory', False),
@@ -1030,9 +1033,13 @@ if not conf.CheckLibWithHeader('z', 'zlib.h', 'C++','zlibVersion();'):
 # automatically added to the LIBS environment variable. After
 # this, we can use the HAVE_PROTOBUF flag to determine if we have
 # got both protoc and libprotobuf available.
-main['HAVE_PROTOBUF'] = main['PROTOC'] and \
-    conf.CheckLibWithHeader('protobuf', 'google/protobuf/message.h',
-                            'C++', 'GOOGLE_PROTOBUF_VERIFY_VERSION;')
+if main['PROTOBUFLIB']:
+    main['HAVE_PROTOBUF'] = True
+    main.Append(LIBS=File(main['PROTOBUFLIB']))
+else:
+    main['HAVE_PROTOBUF'] = main['PROTOC'] and \
+        conf.CheckLibWithHeader('protobuf', 'google/protobuf/message.h',
+                                'C++', 'GOOGLE_PROTOBUF_VERIFY_VERSION;')
 
 # If we have the compiler but not the library, print another warning.
 if main['PROTOC'] and not main['HAVE_PROTOBUF']:
@@ -1053,7 +1060,11 @@ have_posix_timers = \
                             'timer_create(CLOCK_MONOTONIC, NULL, NULL);')
 
 if not GetOption('without_tcmalloc'):
-    if conf.CheckLib('tcmalloc'):
+    if main['TCMALLOCLIB']:
+        main.Append(LIBS=File(main['TCMALLOCLIB']))
+        conf.CheckLib('unwind')
+        main.Append(CCFLAGS=main['TCMALLOC_CCFLAGS'])
+    elif conf.CheckLib('tcmalloc'):
         main.Append(CCFLAGS=main['TCMALLOC_CCFLAGS'])
     elif conf.CheckLib('tcmalloc_minimal'):
         main.Append(CCFLAGS=main['TCMALLOC_CCFLAGS'])
