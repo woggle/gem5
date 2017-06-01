@@ -66,7 +66,8 @@ DefaultDecode<Impl>::DefaultDecode(O3CPU *_cpu, DerivO3CPUParams *params)
       commitToDecodeDelay(params->commitToDecodeDelay),
       fetchToDecodeDelay(params->fetchToDecodeDelay),
       decodeWidth(params->decodeWidth),
-      numThreads(params->numThreads)
+      numThreads(params->numThreads),
+      disableBranchSpec(params->disableBranchSpec)
 {
     if (decodeWidth > Impl::MaxWidth)
         fatal("decodeWidth (%d) is larger than compiled limit (%d),\n"
@@ -722,7 +723,8 @@ DefaultDecode<Impl>::decodeInsts(ThreadID tid)
         // This includes direct unconditional control and
         // direct conditional control that is predicted taken.
         if (inst->isDirectCtrl() &&
-           (inst->isUncondCtrl() || inst->readPredTaken()))
+           (!disableBranchSpec &&
+            (inst->isUncondCtrl() || inst->readPredTaken())))
         {
             ++decodeBranchResolved;
 

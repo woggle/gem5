@@ -149,6 +149,7 @@ class BaseDynInst : public ExecContext, public RefCounted
         IsStrictlyOrdered,
         ReqMade,
         MemOpDone,
+        FakeMispredited,
         MaxFlags
     };
 
@@ -484,7 +485,10 @@ class BaseDynInst : public ExecContext, public RefCounted
         predPC = _predPC;
     }
 
-    const TheISA::PCState &readPredTarg() { return predPC; }
+    const TheISA::PCState &readPredTarg() {
+        assert(!instFlags[FakeMispredited]);
+        return predPC;
+    }
 
     /** Returns the predicted PC immediately after the branch. */
     Addr predInstAddr() { return predPC.instAddr(); }
@@ -506,9 +510,15 @@ class BaseDynInst : public ExecContext, public RefCounted
         instFlags[PredTaken] = predicted_taken;
     }
 
+    void setFakeMispredicted(bool fake_mispredict)
+    {
+        instFlags[FakeMispredited] = fake_mispredict;
+    }
+
     /** Returns whether the instruction mispredicted. */
     bool mispredicted()
     {
+        if (instFlags[FakeMispredited]) return true;
         TheISA::PCState tempPC = pc;
         TheISA::advancePC(tempPC, staticInst);
         return !(tempPC == predPC);

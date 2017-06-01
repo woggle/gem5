@@ -293,6 +293,9 @@ class DefaultDecode
      */
     bool squashAfterDelaySlot[Impl::MaxThreads];
 
+    /** Is branch speculation disabled? */
+    bool disableBranchSpec;
+
 
     /** Stat for total number of idle cycles. */
     Stats::Scalar decodeIdleCycles;

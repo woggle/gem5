@@ -94,6 +94,7 @@ DefaultFetch<Impl>::DefaultFetch(O3CPU *_cpu, DerivO3CPUParams *params)
       fetchQueueSize(params->fetchQueueSize),
       numThreads(params->numThreads),
       numFetchingThreads(params->smtNumFetchingThreads),
+      disableBranchSpec(params->disableBranchSpec),
       finishTranslationEvent(this)
 {
     if (numThreads > Impl::MaxThreads)
@@ -1347,6 +1348,13 @@ DefaultFetch<Impl>::fetch(bool &status_change)
 #endif
 
             nextPC = thisPC;
+
+            if (disableBranchSpec) {
+                predictedBranch = true;
+                instruction->setFakeMispredicted(true);
+                instruction->setPredTaken(true);
+                fetchStatus[tid] = NoGoodAddr;
+            }
 
             // If we're branching after this instruction, quit fetching
             // from the same block.

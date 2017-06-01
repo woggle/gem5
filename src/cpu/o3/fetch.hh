@@ -509,6 +509,9 @@ class DefaultFetch
     /** Number of threads that are actively fetching. */
     ThreadID numFetchingThreads;
 
+    /** Whether branch speculation is disabled? */
+    bool disableBranchSpec;
+
     /** Thread ID being fetched. */
     ThreadID threadFetched;
 
