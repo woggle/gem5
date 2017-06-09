@@ -282,6 +282,11 @@ DefaultCommit<Impl>::regStats()
         ;
     statCommittedInstType.ysubnames(Enums::OpClassStrings);
 
+    committedAfterMispredicted
+        .name(name() + ".commitAfterMispredicted")
+        .desc("number of instructions committed after being mispredicted "
+              "(causing future instructions to be squashed)");
+
     commitEligibleSamples
         .name(name() + ".bw_lim_events")
         .desc("number cycles where commit BW limit reached")
@@ -1022,6 +1027,12 @@ DefaultCommit<Impl>::commitInsts()
             changedROBNumEntries[tid] = true;
         } else {
             pc[tid] = head_inst->pcState();
+
+            if (head_inst->readWasMispredicted()) {
+                DPRINTF(Commit, "Commit after mispredict for %lx [tid: %i]\n",
+                    pc[tid].pc(), tid);
+                committedAfterMispredicted++;
+            }
 
             // Increment the total number of non-speculative instructions
             // executed.

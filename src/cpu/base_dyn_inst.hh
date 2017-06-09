@@ -149,7 +149,8 @@ class BaseDynInst : public ExecContext, public RefCounted
         IsStrictlyOrdered,
         ReqMade,
         MemOpDone,
-        FakeMispredited,
+        FakeMispredicted,
+        WasMispredicted,
         MaxFlags
     };
 
@@ -486,7 +487,7 @@ class BaseDynInst : public ExecContext, public RefCounted
     }
 
     const TheISA::PCState &readPredTarg() {
-        assert(!instFlags[FakeMispredited]);
+        assert(!instFlags[FakeMispredicted]);
         return predPC;
     }
 
@@ -512,13 +513,23 @@ class BaseDynInst : public ExecContext, public RefCounted
 
     void setFakeMispredicted(bool fake_mispredict)
     {
-        instFlags[FakeMispredited] = fake_mispredict;
+        instFlags[FakeMispredicted] = fake_mispredict;
+    }
+
+    void setWasMispredicted(bool was_mispredicted)
+    {
+        instFlags[WasMispredicted] = was_mispredicted;
+    }
+
+    bool readWasMispredicted()
+    {
+        return instFlags[WasMispredicted];
     }
 
     /** Returns whether the instruction mispredicted. */
     bool mispredicted()
     {
-        if (instFlags[FakeMispredited]) return true;
+        if (instFlags[FakeMispredicted]) return true;
         TheISA::PCState tempPC = pc;
         TheISA::advancePC(tempPC, staticInst);
         return !(tempPC == predPC);

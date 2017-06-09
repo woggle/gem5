@@ -526,6 +526,9 @@ class DefaultCommit
     /** Committed instructions by instruction type (OpClass) */
     Stats::Vector2d statCommittedInstType;
 
+    /** Branches committed after being mispredicted. */
+    Stats::Scalar committedAfterMispredicted;
+
     /** Number of cycles where the commit bandwidth limit is reached. */
     Stats::Scalar commitEligibleSamples;
 };
