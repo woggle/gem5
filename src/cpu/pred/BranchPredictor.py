@@ -109,3 +109,16 @@ class LTAGE(BranchPredictor):
     maxHist = Param.Unsigned(640, "Maximum history size of LTAGE")
     minTagWidth = Param.Unsigned(7, "Minimum tag size in tag tables")
 
+class RecordReplayBP(BranchPredictor):
+    type = 'RecordReplayBP'
+    cxx_class = 'RecordReplayBP'
+    cxx_header = "cpu/pred/record_replay.hh"
+
+    fallbackBranchPred = Param.BranchPredictor(NeverTakenBP(),
+        "Branch predictor to use when recording")
+
+    logFile = Param.String("",
+        "Log file to read branch history or write branch history to")
+
+    recordMode = Param.Bool(True,
+        "If true, record to log file; otherwise, read from the log file")

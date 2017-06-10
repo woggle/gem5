@@ -1,0 +1,11 @@
+syntax = "proto2";
+
+package ProtoMessage;
+
+message BranchRecord {
+    required int32 tid = 1;
+    required uint64 pc = 2;
+    required uint64 target = 3;
+    required bool taken = 4;
+}
+
