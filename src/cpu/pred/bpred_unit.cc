@@ -314,6 +314,8 @@ BPredUnit::predict(const StaticInstPtr &inst, const InstSeqNum &seqNum,
 
     pc = target;
 
+    predict_record.predTaken = pred_taken;
+
     predHist[tid].push_front(predict_record);
 
     DPRINTF(Branch, "[tid:%i]: [sn:%i]: History entry added."
