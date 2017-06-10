@@ -95,7 +95,8 @@ BPredUnit::regStats()
 
     condIncorrect
         .name(name() + ".condIncorrect")
-        .desc("Number of conditional branches incorrect")
+        .desc("Number of conditional branches incorrect"
+              " (squashed for any reason)")
         ;
 
     BTBLookups
