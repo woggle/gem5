@@ -51,10 +51,10 @@
 
 #include "base/statistics.hh"
 #include "base/types.hh"
+#include "cpu/inst_seq.hh"
 #include "cpu/pred/btb.hh"
 #include "cpu/pred/indirect.hh"
 #include "cpu/pred/ras.hh"
-#include "cpu/inst_seq.hh"
 #include "cpu/static_inst.hh"
 #include "params/BranchPredictor.hh"
 #include "sim/probe/pmu.hh"
@@ -122,9 +122,9 @@ class BPredUnit : public SimObject
      * @param actually_taken The correct branch direction.
      * @param tid The thread id.
      */
-    void squash(const InstSeqNum &squashed_sn,
-                const TheISA::PCState &corr_target,
-                bool actually_taken, ThreadID tid);
+    virtual void squash(const InstSeqNum &squashed_sn,
+                        const TheISA::PCState &corr_target,
+                        bool actually_taken, ThreadID tid);
 
     /**
      * @param bp_history Pointer to the history object.  The predictor
@@ -140,6 +140,16 @@ class BPredUnit : public SimObject
      * @return Whether the branch is taken or not taken.
      */
     virtual bool lookup(ThreadID tid, Addr instPC, void * &bp_history) = 0;
+
+    /**
+     * Looks up a given PC in the BP to see if it is taken or not taken,
+     * possibly retrieving information about the target.
+     * Default version calls lookup(), gives no branch target information.
+     */
+    virtual bool lookupWithTarget(ThreadID tid, Addr instPC,
+                                  bool unconditional,
+                                  bool &gotNewPC, Addr &nextPC,
+                                  void * &bp_history);
 
      /**
      * If a branch is not taken, because the BTB address is invalid or missing,
@@ -178,7 +188,20 @@ class BPredUnit : public SimObject
      * @todo Make this update flexible enough to handle a global predictor.
      */
     virtual void update(ThreadID tid, Addr instPC, bool taken,
-                        void *bp_history, bool squashed) = 0;
+                        void *bp_history, bool squashed) {}
+
+    /**
+     * Updates the BP with taken/not taken information.
+     * @param inst_PC The branch's PC that will be updated.
+     * @param target_PC The branch's actual target PC (if taken)
+     * @param taken Whether the branch was taken or not taken.
+     * @param bp_history Pointer to the branch predictor state that is
+     * associated with the branch lookup that is being updated.
+     * @param squashed Set to true when this function is called during a
+     * squash operation.
+     */
+    virtual void update(ThreadID tid, Addr instPC, Addr targetPC, bool taken,
+                        void *bp_history, bool squashed);
     /**
      * Updates the BTB with the target of a branch.
      * @param inst_PC The branch's PC that will be updated.
@@ -199,11 +222,12 @@ class BPredUnit : public SimObject
          * information needed to update the predictor, BTB, and RAS.
          */
         PredictorHistory(const InstSeqNum &seq_num, Addr instPC,
-                         bool pred_taken, void *bp_history,
+                         Addr _targetPC, bool pred_taken, void *bp_history,
                          ThreadID _tid)
             : seqNum(seq_num), pc(instPC), bpHistory(bp_history), RASTarget(0),
-              RASIndex(0), tid(_tid), predTaken(pred_taken), usedRAS(0), pushedRAS(0),
-              wasCall(0), wasReturn(0), wasIndirect(0)
+              RASIndex(0), tid(_tid), predTaken(pred_taken),
+              targetPC(_targetPC), usedRAS(0), pushedRAS(0), wasCall(0),
+              wasReturn(0), wasIndirect(0)
         {}
 
         bool operator==(const PredictorHistory &entry) const {
@@ -234,6 +258,9 @@ class BPredUnit : public SimObject
         /** Whether or not it was predicted taken. */
         bool predTaken;
 
+        /** Target PC predicted or used */
+        Addr targetPC;
+
         /** Whether or not the RAS was used. */
         bool usedRAS;
 
@@ -254,7 +281,6 @@ class BPredUnit : public SimObject
 
     /** Number of the threads for which the branch history is maintained. */
     const unsigned numThreads;
-
 
     /**
      * The per-thread predictor history. This is used to update the predictor

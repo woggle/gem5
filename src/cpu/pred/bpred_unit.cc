@@ -194,15 +194,19 @@ BPredUnit::predict(const StaticInstPtr &inst, const InstSeqNum &seqNum,
     ppBranches->notify(1);
 
     void *bp_history = NULL;
+    Addr targetAddr;
+    bool gotTarget = false;
 
     if (inst->isUncondCtrl()) {
         DPRINTF(Branch, "[tid:%i]: Unconditional control.\n", tid);
         pred_taken = true;
         // Tell the BP there was an unconditional branch.
-        uncondBranch(tid, pc.instAddr(), bp_history);
+        lookupWithTarget(tid, pc.instAddr(), true, gotTarget, targetAddr,
+                         bp_history);
     } else {
         ++condPredicted;
-        pred_taken = lookup(tid, pc.instAddr(), bp_history);
+        pred_taken = lookupWithTarget(tid, pc.instAddr(), false,
+                                      gotTarget, targetAddr, bp_history);
 
         DPRINTF(Branch, "[tid:%i]: [sn:%i] Branch predictor"
                 " predicted %i for PC %s\n", tid, seqNum,  pred_taken, pc);
@@ -211,11 +215,11 @@ BPredUnit::predict(const StaticInstPtr &inst, const InstSeqNum &seqNum,
     DPRINTF(Branch, "[tid:%i]: [sn:%i] Creating prediction history "
             "for PC %s\n", tid, seqNum, pc);
 
-    PredictorHistory predict_record(seqNum, pc.instAddr(),
+    PredictorHistory predict_record(seqNum, pc.instAddr(), target.pc(),
                                     pred_taken, bp_history, tid);
 
     // Now lookup in the BTB or RAS.
-    if (pred_taken) {
+    if (pred_taken && !gotTarget) {
         if (useRAS && inst->isReturn()) {
             ++usedRAS;
             predict_record.wasReturn = true;
@@ -306,11 +310,16 @@ BPredUnit::predict(const StaticInstPtr &inst, const InstSeqNum &seqNum,
                         tid);
             }
         }
-    } else {
+        predict_record.targetPC = target.pc();
+    } else if (!gotTarget) {
         if (inst->isReturn()) {
            predict_record.wasReturn = true;
         }
         TheISA::advancePC(target, inst);
+        predict_record.targetPC = target.pc();
+    } else {
+        target.set(targetAddr);
+        predict_record.targetPC = targetAddr;
     }
 
     pc = target;
@@ -319,8 +328,9 @@ BPredUnit::predict(const StaticInstPtr &inst, const InstSeqNum &seqNum,
 
     predHist[tid].push_front(predict_record);
 
-    DPRINTF(Branch, "[tid:%i]: [sn:%i]: History entry added."
-            "predHist.size(): %i\n", tid, seqNum, predHist[tid].size());
+    DPRINTF(Branch, "[tid:%i]: [sn:%i]: History entry added. Target %s."
+            "predHist.size(): %i\n", tid, seqNum, target,
+            predHist[tid].size());
 
     return pred_taken;
 }
@@ -336,11 +346,19 @@ BPredUnit::update(const InstSeqNum &done_sn, ThreadID tid)
            predHist[tid].back().seqNum <= done_sn) {
         // Update the branch predictor with the correct results.
         update(tid, predHist[tid].back().pc,
+                    predHist[tid].back().targetPC,
                     predHist[tid].back().predTaken,
                     predHist[tid].back().bpHistory, false);
 
         predHist[tid].pop_back();
     }
+}
+
+void
+BPredUnit::update(ThreadID tid, Addr instPC, Addr targetPC, bool taken,
+                  void *bp_history, bool squashed)
+{
+    update(tid, instPC, taken, bp_history, squashed);
 }
 
 void
@@ -370,7 +388,7 @@ BPredUnit::squash(const InstSeqNum &squashed_sn, ThreadID tid)
         squash(tid, pred_hist.front().bpHistory);
 
         DPRINTF(Branch, "[tid:%i]: Removing history for [sn:%i] "
-                "PC %s.\n", tid, pred_hist.front().seqNum,
+                "PC %lx.\n", tid, pred_hist.front().seqNum,
                 pred_hist.front().pc);
 
         pred_hist.pop_front();
@@ -445,9 +463,10 @@ BPredUnit::squash(const InstSeqNum &squashed_sn,
 
         // Remember the correct direction for the update at commit.
         pred_hist.front().predTaken = actually_taken;
+        pred_hist.front().targetPC = corrTarget.pc();
 
-        update(tid, (*hist_it).pc, actually_taken,
-               pred_hist.front().bpHistory, true);
+        update(tid, (*hist_it).pc, corrTarget.pc(),
+               actually_taken, pred_hist.front().bpHistory, true);
 
         if (actually_taken) {
             if (hist_it->wasReturn && !hist_it->usedRAS) {
@@ -489,6 +508,20 @@ BPredUnit::squash(const InstSeqNum &squashed_sn,
     } else {
         DPRINTF(Branch, "[tid:%i]: [sn:%i] pred_hist empty, can't "
                 "update.\n", tid, squashed_sn);
+    }
+}
+
+bool
+BPredUnit::lookupWithTarget(ThreadID tid, Addr instPC,
+                            bool unconditional,
+                            bool &gotNewPC, Addr &nextPC,
+                            void * &bp_history)
+{
+    if (unconditional) {
+        uncondBranch(tid, instPC, bp_history);
+        return true;
+    } else {
+        return lookup(tid, instPC, bp_history);
     }
 }
 
